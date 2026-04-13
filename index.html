@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Meu Planner Dark</title>
+    <style>
+        :root {
+            --primary: #a8e6cf; /* Verde menta para destaques */
+            --bg: #121212;      /* Fundo quase preto */
+            --card: #1e1e1e;    /* Cinza escuro para os cards */
+            --text: #e0e0e0;    /* Texto claro */
+            --text-dim: #999;   /* Texto secundário */
+            --border: #333;     /* Bordas sutis */
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            color: var(--text);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Menu Lateral Dark */
+        .sidebar {
+            height: 100%; width: 0; position: fixed; z-index: 1000;
+            top: 0; left: 0; background-color: var(--card); overflow-x: hidden;
+            transition: 0.4s; padding-top: 60px; box-shadow: 5px 0 15px rgba(0,0,0,0.5);
+        }
+        .sidebar a {
+            padding: 15px 25px; text-decoration: none; font-size: 18px;
+            color: var(--text); display: block; border-bottom: 1px solid var(--border);
+        }
+        .sidebar .closebtn { position: absolute; top: 10px; right: 25px; font-size: 36px; cursor: pointer; }
+
+        header { 
+            padding: 20px; display: flex; align-items: center; gap: 20px; 
+            background: var(--card); border-bottom: 1px solid var(--border);
+        }
+        .menu-icon { font-size: 30px; cursor: pointer; color: var(--primary); }
+
+        .container { padding: 20px; max-width: 500px; margin: auto; }
+        .date-display { font-size: 20px; font-weight: 300; text-transform: capitalize; }
+
+        /* Progress Bar Dark */
+        .progress-section { margin: 15px 0 25px 0; }
+        .progress-bg { background: #333; height: 10px; border-radius: 5px; }
+        #bar { 
+            height: 100%; 
+            background: linear-gradient(90deg, #72efc2, var(--primary)); 
+            width: 0%; border-radius: 5px; transition: 0.5s; 
+            box-shadow: 0 0 10px rgba(168, 230, 207, 0.3);
+        }
+        #status-txt { font-size: 12px; color: var(--text-dim); margin-top: 5px; display: block; }
+
+        /* Visão Semana Dark */
+        .day-group {
+            background: var(--card); border-radius: 15px; padding: 18px;
+            margin-bottom: 20px; border: 1px solid var(--border);
+        }
+        .day-title { font-size: 16px; font-weight: bold; color: var(--primary); margin-bottom: 12px; }
+
+        /* Inputs e Itens */
+        .input-inline {
+            width: 100%; border: none; border-bottom: 1px solid var(--border);
+            padding: 10px 0; outline: none; margin-bottom: 15px; 
+            font-size: 16px; background: transparent; color: var(--text);
+        }
+        .input-inline::placeholder { color: #555; }
+
+        .task-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #2a2a2a; }
+        .task-item span { flex: 1; margin-left: 12px; font-size: 16px; }
+        .task-item.done span { text-decoration: line-through; color: #555; }
+        
+        input[type="checkbox"] { 
+            width: 22px; height: 22px; accent-color: var(--primary); 
+            cursor: pointer; background: #333; border: 1px solid var(--border);
+        }
+
+        .delete-btn { color: #ff8b8b; background: none; border: none; font-size: 12px; cursor: pointer; opacity: 0.7; }
+        .delete-btn:hover { opacity: 1; }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="mySidebar" class="sidebar">
+    <span class="closebtn" onclick="closeNav()">&times;</span>
+    <a href="#" onclick="showView('inicio')">Início</a>
+    <a href="#" onclick="showView('semana')">Semana</a>
+</div>
+
+<header>
+    <span class="menu-icon" onclick="openNav()">&#9776;</span>
+    <div id="header-title" class="date-display"></div>
+</header>
+
+<div class="container">
+    <div id="view-inicio">
+        <div class="progress-section">
+            <div class="progress-bg"><div id="bar"></div></div>
+            <small id="status-txt">0% concluído</small>
+        </div>
+        <div id="lista-hoje"></div>
+    </div>
+
+    <div id="view-semana" class="hidden"></div>
+</div>
+
+<script>
+    const diasNomes = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+    let db = JSON.parse(localStorage.getItem('planner_dark_v1')) || { 0:[], 1:[], 2:[], 3:[], 4:[], 5:[], 6:[] };
+
+    function openNav() { document.getElementById("mySidebar").style.width = "260px"; }
+    function closeNav() { document.getElementById("mySidebar").style.width = "0"; }
+
+    function showView(view) {
+        closeNav();
+        if (view === 'inicio') {
+            document.getElementById('view-inicio').classList.remove('hidden');
+            document.getElementById('view-semana').classList.add('hidden');
+            renderInicio();
+        } else {
+            document.getElementById('view-inicio').classList.add('hidden');
+            document.getElementById('view-semana').classList.remove('hidden');
+            renderSemana();
+        }
+    }
+
+    function renderInicio() {
+        const hoje = new Date();
+        const numDia = hoje.getDay();
+        document.getElementById('header-title').innerText = hoje.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+        
+        const lista = document.getElementById('lista-hoje');
+        lista.innerHTML = '';
+        const tarefas = db[numDia] || [];
+        let concluidas = 0;
+
+        tarefas.forEach((t, i) => {
+            if (t.feita) concluidas++;
+            const item = document.createElement('div');
+            item.className = `task-item ${t.feita ? 'done' : ''}`;
+            item.innerHTML = `<input type="checkbox" ${t.feita ? 'checked' : ''} onchange="toggle(${numDia}, ${i})"><span>${t.texto}</span>`;
+            lista.appendChild(item);
+        });
+
+        const porcento = tarefas.length > 0 ? Math.round((concluidas / tarefas.length) * 100) : 0;
+        document.getElementById('bar').style.width = porcento + '%';
+        document.getElementById('status-txt').innerText = `${porcento}% concluído`;
+    }
+
+    function renderSemana() {
+        document.getElementById('header-title').innerText = "Semana";
+        const container = document.getElementById('view-semana');
+        container.innerHTML = '';
+
+        const ordem = [1, 2, 3, 4, 5, 6, 0];
+        
+        ordem.forEach(numDia => {
+            const grupo = document.createElement('div');
+            grupo.className = 'day-group';
+            
+            let tarefasHtml = (db[numDia] || []).map((t, i) => `
+                <div class="task-item">
+                    <span>${t.texto}</span>
+                    <button class="delete-btn" onclick="remove(${numDia}, ${i})">remover</button>
+                </div>
+            `).join('');
+
+            grupo.innerHTML = `
+                <div class="day-title">${diasNomes[numDia]}</div>
+                <input type="text" class="input-inline" placeholder="+ Adicionar tarefa..." onkeypress="add(event, ${numDia})">
+                <div>${tarefasHtml}</div>
+            `;
+            container.appendChild(grupo);
+        });
+    }
+
+    function add(e, numDia) {
+        if (e.key === 'Enter' && e.target.value.trim() !== "") {
+            db[numDia].push({ texto: e.target.value, feita: false });
+            e.target.value = "";
+            save();
+            renderSemana();
+        }
+    }
+
+    function toggle(numDia, i) {
+        db[numDia][i].feita = !db[numDia][i].feita;
+        save();
+        renderInicio();
+    }
+
+    function remove(numDia, i) {
+        db[numDia].splice(i, 1);
+        save();
+        renderSemana();
+    }
+
+    function save() { localStorage.setItem('planner_dark_v1', JSON.stringify(db)); }
+
+    renderInicio();
+</script>
+
+</body>
+</html>
